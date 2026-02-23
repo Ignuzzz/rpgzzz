@@ -8,7 +8,15 @@ import sqlite3, os, base64, inspect, traceback
 from datetime import datetime
 import streamlit as st
 import bcrypt
-# --- Conectar ao SQLite normalmente ---
+import urllib.request
+
+DB_PATH = "rpg.db"
+DB_URL = "https://raw.githubusercontent.com/Ignuzz/rpgzzz/main/rpg.db"
+
+# Baixa se não existir
+if not os.path.exists(DB_PATH):
+    urllib.request.urlretrieve(DB_URL, DB_PATH)
+
 conn = sqlite3.connect(DB_PATH)
 c = conn.cursor()
 
@@ -1507,6 +1515,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
