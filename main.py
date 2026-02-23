@@ -9,24 +9,34 @@ from datetime import datetime
 import streamlit as st
 import bcrypt
 from supabase import create_client
-import streamlit as st
+import subprocess
 
-supabase = create_client(
-    st.secrets["supabase"]["url"],
-    st.secrets["supabase"]["key"]
-)
+DB_PATH = "rpg.db"
 
-def salvar_ficha(id_ficha, dados):
-    supabase.table("fichas").upsert({
-        "id": id_ficha,
-        "dados": dados
-    }).execute()
+# Ler secrets
+github_user = st.secrets["github"]["username"]
+github_token = st.secrets["github"]["token"]
+github_repo = st.secrets["github"]["repo"]
+github_branch = st.secrets["github"]["branch"]
 
-def carregar_ficha(id_ficha):
-    response = supabase.table("fichas").select("*").eq("id", id_ficha).execute()
-    if response.data:
-        return response.data[0]["dados"]
-    return None
+def push_db_to_github():
+    # Inicializa git se não tiver
+    if not os.path.exists(".git"):
+        subprocess.run(["git", "init"])
+        subprocess.run(["git", "remote", "add", "origin", f"https://{github_user}:{github_token}@github.com/{github_repo}"])
+
+    # Adiciona arquivo e commita
+    subprocess.run(["git", "add", DB_PATH])
+    subprocess.run(["git", "commit", "-m", "Atualização automática do rpg.db"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    # Push para o GitHub
+    subprocess.run(["git", "push", "-u", "origin", github_branch, "--force"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+# Chame essa função sempre que houver alteração no DB
+# Exemplo:
+if st.button("Salvar DB no GitHub"):
+    push_db_to_github()
+    st.success("rpg.db atualizado no GitHub!")
 
 # ===== módulos de features (devem existir na mesma pasta) =====
 import skill_popup
@@ -1501,3 +1511,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
