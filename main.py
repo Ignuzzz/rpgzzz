@@ -10,33 +10,73 @@ import streamlit as st
 import bcrypt
 from supabase import create_client
 import subprocess
+import urllib.request
 
+# --- CONFIGURAÇÃO ---
 DB_PATH = "rpg.db"
 
-# Ler secrets
 github_user = st.secrets["github"]["username"]
 github_token = st.secrets["github"]["token"]
 github_repo = st.secrets["github"]["repo"]
 github_branch = st.secrets["github"]["branch"]
 
+DB_URL = f"https://raw.githubusercontent.com/{github_user}/{github_repo}/{github_branch}/rpg.db"
+
+# --- FUNÇÃO PARA BAIXAR O DB DO GITHUB ---
+def download_db():
+    if not os.path.exists(DB_PATH):
+        try:
+            urllib.request.urlretrieve(DB_URL, DB_PATH)
+            st.info("Banco baixado do GitHub.")
+        except Exception as e:
+            st.warning(f"Não foi possível baixar o DB do GitHub: {e}")
+
+# --- FUNÇÃO PARA ENVIAR O DB AO GITHUB ---
 def push_db_to_github():
-    # Inicializa git se não tiver
-    if not os.path.exists(".git"):
-        subprocess.run(["git", "init"])
-        subprocess.run(["git", "remote", "add", "origin", f"https://{github_user}:{github_token}@github.com/{github_repo}"])
+    try:
+        if not os.path.exists(".git"):
+            subprocess.run(["git", "init"])
+            subprocess.run(["git", "remote", "add", "origin", f"https://{github_user}:{github_token}@github.com/{github_repo}"])
+        
+        subprocess.run(["git", "add", DB_PATH])
+        subprocess.run(["git", "commit", "-m", "Atualização automática do rpg.db"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["git", "push", "-u", "origin", github_branch, "--force"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        st.warning(f"Não foi possível enviar o DB para o GitHub: {e}")
 
-    # Adiciona arquivo e commita
-    subprocess.run(["git", "add", DB_PATH])
-    subprocess.run(["git", "commit", "-m", "Atualização automática do rpg.db"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+# --- MONITORAR ALTERAÇÕES NO DB ---
+def auto_save_db(db_path):
+    last_size = os.path.getsize(db_path)
+    
+    import time
+    while True:
+        time.sleep(5)  # verifica a cada 5 segundos
+        new_size = os.path.getsize(db_path)
+        if new_size != last_size:
+            push_db_to_github()
+            last_size = new_size
 
-    # Push para o GitHub
-    subprocess.run(["git", "push", "-u", "origin", github_branch, "--force"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+# --- INÍCIO DO APP ---
+download_db()  # baixa o DB na inicialização
 
-# Chame essa função sempre que houver alteração no DB
-# Exemplo:
-if st.button("Salvar DB no GitHub"):
+# Exemplo: abrir o SQLite normalmente
+conn = sqlite3.connect(DB_PATH)
+c = conn.cursor()
+
+# --- EXEMPLO DE USO STREAMLIT ---
+st.title("RPG SQLite com GitHub")
+st.write("Qualquer alteração no DB será salva automaticamente no GitHub.")
+
+# --- Aqui você coloca seu código de RPG normalmente, usando `conn` ---
+# Exemplo de inserção:
+if st.button("Inserir item de teste"):
+    c.execute("CREATE TABLE IF NOT EXISTS itens (nome TEXT)")
+    c.execute("INSERT INTO itens (nome) VALUES (?)", ("Espada Mágica",))
+    conn.commit()
     push_db_to_github()
-    st.success("rpg.db atualizado no GitHub!")
+    st.success("Item adicionado e DB atualizado!")
+
+conn.close()
 
 # ===== módulos de features (devem existir na mesma pasta) =====
 import skill_popup
@@ -1511,4 +1551,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
