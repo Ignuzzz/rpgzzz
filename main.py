@@ -8,6 +8,25 @@ import sqlite3, os, base64, inspect, traceback
 from datetime import datetime
 import streamlit as st
 import bcrypt
+from supabase import create_client
+import streamlit as st
+
+supabase = create_client(
+    st.secrets["supabase"]["url"],
+    st.secrets["supabase"]["key"]
+)
+
+def salvar_ficha(id_ficha, dados):
+    supabase.table("fichas").upsert({
+        "id": id_ficha,
+        "dados": dados
+    }).execute()
+
+def carregar_ficha(id_ficha):
+    response = supabase.table("fichas").select("*").eq("id", id_ficha).execute()
+    if response.data:
+        return response.data[0]["dados"]
+    return None
 
 # ===== módulos de features (devem existir na mesma pasta) =====
 import skill_popup
